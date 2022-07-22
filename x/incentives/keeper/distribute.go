@@ -243,12 +243,12 @@ func (k Keeper) distributeSyntheticInternal(
 
 	// map from lockID to present index in resultant list
 	type lockIndexPair struct {
-		lock  *lockuptypes.PeriodLock
+		lock  lockuptypes.PeriodLock
 		index int
 	}
 	qualifiedLocksMap := make(map[uint64]lockIndexPair, len(qualifiedLocks1))
 	for _, lock := range qualifiedLocks1 {
-		qualifiedLocksMap[lock.ID] = lockIndexPair{&lock, -1}
+		qualifiedLocksMap[lock.ID] = lockIndexPair{lock, -1}
 	}
 	curIndex := 0
 	for _, lock := range locks {
@@ -258,17 +258,17 @@ func (k Keeper) distributeSyntheticInternal(
 		}
 	}
 
-	sortedAndTrimmedQualifiedLocks := make([]lockuptypes.PeriodLock, len(qualifiedLocksMap), len(qualifiedLocksMap))
+	sortedAndTrimmedQualifiedLocks := make([]lockuptypes.PeriodLock, len(qualifiedLocksMap), curIndex)
 	for _, v := range qualifiedLocksMap {
 		if v.index < 0 {
 			continue
 		}
-		sortedAndTrimmedQualifiedLocks[v.index] = *v.lock
+		sortedAndTrimmedQualifiedLocks[v.index] = v.lock
 	}
 	qualifiedLocks3 := sortedAndTrimmedQualifiedLocks
 	fmt.Printf("GREP HERE %s: list len's: %d %d %d\n", denom, len(qualifiedLocks1), len(qualifiedLocks2), len(qualifiedLocks3))
 	if len(qualifiedLocks2) != len(qualifiedLocks1) {
-		fmt.Println("REALLY GREP HERE\n")
+		fmt.Println("REALLY GREP HERE")
 		for j := 0; j < len(qualifiedLocks1); j++ {
 			fmt.Println(qualifiedLocks1[j].ID)
 		}
