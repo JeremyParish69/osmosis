@@ -2,7 +2,6 @@ package keeper
 
 import (
 	"fmt"
-	"sort"
 	"time"
 
 	db "github.com/tendermint/tm-db"
@@ -242,17 +241,28 @@ func (k Keeper) distributeSyntheticInternal(
 		qualifiedLocks2 = append(qualifiedLocks2, lock)
 	}
 
-	qualifiedLocks3 := make([]lockuptypes.PeriodLock, 0, len(qualifiedLocks1))
-	for _, lock := range qualifiedLocks1 {
-		// See if this lock has a synthetic lockup. If so, err == nil, and we add to qualifiedLocks
-		// otherwise it does not, and we continue.
-		_, err := k.lk.GetSyntheticLockup(ctx, lock.ID, denom)
-		if err != nil {
-			continue
-		}
-		qualifiedLocks3 = append(qualifiedLocks3, lock)
+	// map from lockID to present index in resultant list
+	type lockIndexPair struct {
+		lock  *lockuptypes.PeriodLock
+		index int
 	}
-	sort.Slice(qualifiedLocks3, func(i, j int) bool { return qualifiedLocks3[i].ID < qualifiedLocks3[j].ID })
+	qualifiedLocksMap := make(map[uint64]lockIndexPair, len(qualifiedLocks1))
+	for _, lock := range qualifiedLocks1 {
+		qualifiedLocksMap[lock.ID] = lockIndexPair{&lock, 0}
+	}
+	curIndex := 0
+	for _, lock := range locks {
+		if v, ok := qualifiedLocksMap[lock.ID]; ok {
+			qualifiedLocksMap[lock.ID] = lockIndexPair{v.lock, curIndex}
+			curIndex += 1
+		}
+	}
+
+	sortedAndTrimmedQualifiedLocks := make([]lockuptypes.PeriodLock, len(qualifiedLocksMap), len(qualifiedLocksMap))
+	for _, v := range qualifiedLocksMap {
+		sortedAndTrimmedQualifiedLocks[v.index] = *v.lock
+	}
+	qualifiedLocks3 := sortedAndTrimmedQualifiedLocks
 	fmt.Printf("GREP HERE %s: list len's: %d %d %d\n", denom, len(qualifiedLocks1), len(qualifiedLocks2), len(qualifiedLocks3))
 	if len(qualifiedLocks2) != len(qualifiedLocks1) {
 		fmt.Println("REALLY GREP HERE")
@@ -269,8 +279,8 @@ func (k Keeper) distributeSyntheticInternal(
 		if i < len(qualifiedLocks1) && qualifiedLocks2[i].ID != qualifiedLocks1[i].ID {
 			fmt.Printf("GREP HERE: N/E at %d: %d %d", i, qualifiedLocks2[i].ID, qualifiedLocks1[i].ID)
 		}
-		if i < len(qualifiedLocks3) && qualifiedLocks3[i].ID != qualifiedLocks1[i].ID {
-			fmt.Printf("GREP HERE (3): N/E at %d: %d %d", i, qualifiedLocks3[i].ID, qualifiedLocks1[i].ID)
+		if i < len(qualifiedLocks3) && qualifiedLocks3[i].ID != qualifiedLocks2[i].ID {
+			fmt.Printf("GREP HERE (3): N/E at %d: %d %d", i, qualifiedLocks3[i].ID, qualifiedLocks2[i].ID)
 		}
 	}
 	return k.distributeInternal(ctx, gauge, qualifiedLocks3, distrInfo)
