@@ -227,34 +227,35 @@ func (k Keeper) doDistributionSends(ctx sdk.Context, distrs *distributionInfo) e
 func (k Keeper) distributeSyntheticInternal(
 	ctx sdk.Context, gauge types.Gauge, locks []lockuptypes.PeriodLock, distrInfo *distributionInfo,
 ) (sdk.Coins, error) {
-	qualifiedLocks1 := k.lk.GetLocksLongerThanDurationDenom(ctx, gauge.DistributeTo.Denom, gauge.DistributeTo.Duration)
+	qualifiedLocksMax := k.lk.GetLocksLongerThanDurationDenom(ctx, gauge.DistributeTo.Denom, gauge.DistributeTo.Duration)
 	denom := gauge.DistributeTo.Denom
 
-	qualifiedLocks2 := make([]lockuptypes.PeriodLock, 0, len(locks))
-	for _, lock := range locks {
+	qualifiedLocks := make([]lockuptypes.PeriodLock, 0, len(qualifiedLocksMax))
+	// Its probably a bug that we have to do this
+	for _, lock := range qualifiedLocksMax {
 		// See if this lock has a synthetic lockup. If so, err == nil, and we add to qualifiedLocks
 		// otherwise it does not, and we continue.
 		_, err := k.lk.GetSyntheticLockup(ctx, lock.ID, denom)
 		if err != nil {
 			continue
 		}
-		qualifiedLocks2 = append(qualifiedLocks2, lock)
+		qualifiedLocks = append(qualifiedLocks, lock)
 	}
-	fmt.Printf("GREP HERE %s: len(1), len(2): %d %d\n", denom, len(qualifiedLocks1), len(qualifiedLocks2))
-	for i := 0; i < len(qualifiedLocks1); i++ {
-		if len(qualifiedLocks2) == 0 {
-			for j := 0; j < len(qualifiedLocks1); j++ {
-				fmt.Println(qualifiedLocks1[j].ID)
-			}
-			fmt.Println(qualifiedLocks1)
-		}
-		if qualifiedLocks2[i].ID != qualifiedLocks1[i].ID {
-			fmt.Printf("GREP HERE: N/E at %d: %d %d", i, qualifiedLocks2[i].ID, qualifiedLocks1[i].ID)
-		}
-		fmt.Printf("lock id A,B: %d , %d\n", qualifiedLocks2[i].ID, qualifiedLocks1[i].ID)
-		fmt.Printf("lock owner A,B: %s , %s\n", qualifiedLocks2[i].Owner, qualifiedLocks1[i].Owner)
-	}
-	return k.distributeInternal(ctx, gauge, qualifiedLocks1, distrInfo)
+	// fmt.Printf("GREP HERE %s: len(1), len(2): %d %d\n", denom, len(qualifiedLocks1), len(qualifiedLocks2))
+	// for i := 0; i < len(qualifiedLocks1); i++ {
+	// 	if len(qualifiedLocks2) == 0 {
+	// 		for j := 0; j < len(qualifiedLocks1); j++ {
+	// 			fmt.Println(qualifiedLocks1[j].ID)
+	// 		}
+	// 		fmt.Println(qualifiedLocks1)
+	// 	}
+	// 	if qualifiedLocks2[i].ID != qualifiedLocks1[i].ID {
+	// 		fmt.Printf("GREP HERE: N/E at %d: %d %d", i, qualifiedLocks2[i].ID, qualifiedLocks1[i].ID)
+	// 	}
+	// 	fmt.Printf("lock id A,B: %d , %d\n", qualifiedLocks2[i].ID, qualifiedLocks1[i].ID)
+	// 	fmt.Printf("lock owner A,B: %s , %s\n", qualifiedLocks2[i].Owner, qualifiedLocks1[i].Owner)
+	// }
+	return k.distributeInternal(ctx, gauge, qualifiedLocks, distrInfo)
 }
 
 // distributeInternal runs the distribution logic for a gauge, and adds the sends to
