@@ -243,7 +243,7 @@ func (k Keeper) distributeSyntheticInternal(
 	}
 
 	qualifiedLocks3 := make([]lockuptypes.PeriodLock, 0, len(qualifiedLocks1))
-	for _, lock := range qualifiedLocks3 {
+	for _, lock := range qualifiedLocks1 {
 		// See if this lock has a synthetic lockup. If so, err == nil, and we add to qualifiedLocks
 		// otherwise it does not, and we continue.
 		_, err := k.lk.GetSyntheticLockup(ctx, lock.ID, denom)
