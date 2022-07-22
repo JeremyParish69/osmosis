@@ -242,6 +242,12 @@ func (k Keeper) distributeSyntheticInternal(
 	}
 	fmt.Printf("GREP HERE %s: len(1), len(2): %d %d", denom, len(qualifiedLocks1), len(qualifiedLocks2))
 	for i := 0; i < len(qualifiedLocks1); i++ {
+		if len(qualifiedLocks2) == 0 {
+			for j := 0; j < len(qualifiedLocks1); j++ {
+				print(qualifiedLocks1[j].ID)
+			}
+			print(qualifiedLocks1)
+		}
 		if qualifiedLocks2[i].ID != qualifiedLocks1[i].ID {
 			fmt.Printf("GREP HERE: N/E at %d: %d %d", i, qualifiedLocks2[i].ID, qualifiedLocks1[i].ID)
 		}
