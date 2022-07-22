@@ -248,7 +248,7 @@ func (k Keeper) distributeSyntheticInternal(
 	}
 	qualifiedLocksMap := make(map[uint64]lockIndexPair, len(qualifiedLocks1))
 	for _, lock := range qualifiedLocks1 {
-		qualifiedLocksMap[lock.ID] = lockIndexPair{&lock, 0}
+		qualifiedLocksMap[lock.ID] = lockIndexPair{&lock, -1}
 	}
 	curIndex := 0
 	for _, lock := range locks {
@@ -260,12 +260,15 @@ func (k Keeper) distributeSyntheticInternal(
 
 	sortedAndTrimmedQualifiedLocks := make([]lockuptypes.PeriodLock, len(qualifiedLocksMap), len(qualifiedLocksMap))
 	for _, v := range qualifiedLocksMap {
+		if v.index < 0 {
+			continue
+		}
 		sortedAndTrimmedQualifiedLocks[v.index] = *v.lock
 	}
 	qualifiedLocks3 := sortedAndTrimmedQualifiedLocks
 	fmt.Printf("GREP HERE %s: list len's: %d %d %d\n", denom, len(qualifiedLocks1), len(qualifiedLocks2), len(qualifiedLocks3))
 	if len(qualifiedLocks2) != len(qualifiedLocks1) {
-		fmt.Println("REALLY GREP HERE")
+		fmt.Println("REALLY GREP HERE\n")
 		for j := 0; j < len(qualifiedLocks1); j++ {
 			fmt.Println(qualifiedLocks1[j].ID)
 		}
@@ -277,10 +280,10 @@ func (k Keeper) distributeSyntheticInternal(
 	}
 	for i := 0; i < len(qualifiedLocks2); i++ {
 		if i < len(qualifiedLocks1) && qualifiedLocks2[i].ID != qualifiedLocks1[i].ID {
-			fmt.Printf("GREP HERE: N/E at %d: %d %d", i, qualifiedLocks2[i].ID, qualifiedLocks1[i].ID)
+			fmt.Printf("GREP HERE: N/E at %d: %d %d\n", i, qualifiedLocks2[i].ID, qualifiedLocks1[i].ID)
 		}
-		if i < len(qualifiedLocks3) && qualifiedLocks3[i].ID != qualifiedLocks2[i].ID {
-			fmt.Printf("GREP HERE (3): N/E at %d: %d %d", i, qualifiedLocks3[i].ID, qualifiedLocks2[i].ID)
+		if i < len(qualifiedLocks3) && qualifiedLocks3[i].ID != qualifiedLocks1[i].ID {
+			fmt.Printf("GREP HERE (3): N/E at %d: %d %d\n", i, qualifiedLocks3[i].ID, qualifiedLocks2[i].ID)
 		}
 	}
 	return k.distributeInternal(ctx, gauge, qualifiedLocks3, distrInfo)
