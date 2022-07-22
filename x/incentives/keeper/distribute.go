@@ -258,7 +258,7 @@ func (k Keeper) distributeSyntheticInternal(
 		}
 	}
 
-	sortedAndTrimmedQualifiedLocks := make([]lockuptypes.PeriodLock, len(qualifiedLocksMap), curIndex)
+	sortedAndTrimmedQualifiedLocks := make([]lockuptypes.PeriodLock, curIndex, curIndex)
 	for _, v := range qualifiedLocksMap {
 		if v.index < 0 {
 			continue
