@@ -227,9 +227,24 @@ func (k Keeper) doDistributionSends(ctx sdk.Context, distrs *distributionInfo) e
 func (k Keeper) distributeSyntheticInternal(
 	ctx sdk.Context, gauge types.Gauge, locks []lockuptypes.PeriodLock, distrInfo *distributionInfo,
 ) (sdk.Coins, error) {
-	qualifiedLocks := k.lk.GetLocksLongerThanDurationDenom(ctx, gauge.DistributeTo.Denom, gauge.DistributeTo.Duration)
+	qualifiedLocks1 := k.lk.GetLocksLongerThanDurationDenom(ctx, gauge.DistributeTo.Denom, gauge.DistributeTo.Duration)
+	denom := gauge.DistributeTo.Denom
 
-	return k.distributeInternal(ctx, gauge, qualifiedLocks, distrInfo)
+	qualifiedLocks2 := make([]lockuptypes.PeriodLock, 0, len(locks))
+	for _, lock := range locks {
+		// See if this lock has a synthetic lockup. If so, err == nil, and we add to qualifiedLocks
+		// otherwise it does not, and we continue.
+		_, err := k.lk.GetSyntheticLockup(ctx, lock.ID, denom)
+		if err != nil {
+			continue
+		}
+		qualifiedLocks2 = append(qualifiedLocks2, lock)
+	}
+	for i := 0; i < len(qualifiedLocks1); i++ {
+		fmt.Printf("lock id A,B: %d , %d\n\n", qualifiedLocks2[i], qualifiedLocks1[i])
+		fmt.Printf("lock owner A,B: %s , %s\n\n", qualifiedLocks2[i].Owner, qualifiedLocks1[i].Owner)
+	}
+	return k.distributeInternal(ctx, gauge, qualifiedLocks1, distrInfo)
 }
 
 // distributeInternal runs the distribution logic for a gauge, and adds the sends to
