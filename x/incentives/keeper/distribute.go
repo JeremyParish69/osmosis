@@ -227,27 +227,18 @@ func (k Keeper) doDistributionSends(ctx sdk.Context, distrs *distributionInfo) e
 func (k Keeper) distributeSyntheticInternal(
 	ctx sdk.Context, gauge types.Gauge, locks []lockuptypes.PeriodLock, distrInfo *distributionInfo,
 ) (sdk.Coins, error) {
-	qualifiedLocks1 := k.lk.GetLocksLongerThanDurationDenom(ctx, gauge.DistributeTo.Denom, gauge.DistributeTo.Duration)
-	denom := gauge.DistributeTo.Denom
-
-	qualifiedLocks2 := make([]lockuptypes.PeriodLock, 0, len(locks))
-	for _, lock := range locks {
-		// See if this lock has a synthetic lockup. If so, err == nil, and we add to qualifiedLocks
-		// otherwise it does not, and we continue.
-		_, err := k.lk.GetSyntheticLockup(ctx, lock.ID, denom)
-		if err != nil {
-			continue
-		}
-		qualifiedLocks2 = append(qualifiedLocks2, lock)
-	}
+	qualifiedLocks := k.lk.GetLocksLongerThanDurationDenom(ctx, gauge.DistributeTo.Denom, gauge.DistributeTo.Duration)
 
 	// map from lockID to present index in resultant list
+	// to be state compatible with what we had before, we iterate over locks, to get qualified locks
+	// to be in the same order as what is present in locks.
+	// in a future release, we can just use qualified locks directly.
 	type lockIndexPair struct {
 		lock  lockuptypes.PeriodLock
 		index int
 	}
-	qualifiedLocksMap := make(map[uint64]lockIndexPair, len(qualifiedLocks1))
-	for _, lock := range qualifiedLocks1 {
+	qualifiedLocksMap := make(map[uint64]lockIndexPair, len(qualifiedLocks))
+	for _, lock := range qualifiedLocks {
 		qualifiedLocksMap[lock.ID] = lockIndexPair{lock, -1}
 	}
 	curIndex := 0
@@ -265,28 +256,8 @@ func (k Keeper) distributeSyntheticInternal(
 		}
 		sortedAndTrimmedQualifiedLocks[v.index] = v.lock
 	}
-	qualifiedLocks3 := sortedAndTrimmedQualifiedLocks
-	fmt.Printf("GREP HERE %s: list len's: %d %d %d\n", denom, len(qualifiedLocks1), len(qualifiedLocks2), len(qualifiedLocks3))
-	if len(qualifiedLocks2) != len(qualifiedLocks1) {
-		fmt.Println("REALLY GREP HERE")
-		for j := 0; j < len(qualifiedLocks1); j++ {
-			fmt.Println(qualifiedLocks1[j].ID)
-		}
-		fmt.Println(qualifiedLocks1)
-		for j := 0; j < len(qualifiedLocks2); j++ {
-			fmt.Println(qualifiedLocks2[j].ID)
-		}
-		fmt.Println(qualifiedLocks2)
-	}
-	for i := 0; i < len(qualifiedLocks2); i++ {
-		if i < len(qualifiedLocks1) && qualifiedLocks2[i].ID != qualifiedLocks1[i].ID {
-			fmt.Printf("GREP HERE: N/E at %d: %d %d\n", i, qualifiedLocks2[i].ID, qualifiedLocks1[i].ID)
-		}
-		if i < len(qualifiedLocks3) && qualifiedLocks3[i].ID != qualifiedLocks1[i].ID {
-			fmt.Printf("GREP HERE (3): N/E at %d: %d %d\n", i, qualifiedLocks3[i].ID, qualifiedLocks2[i].ID)
-		}
-	}
-	return k.distributeInternal(ctx, gauge, qualifiedLocks3, distrInfo)
+
+	return k.distributeInternal(ctx, gauge, sortedAndTrimmedQualifiedLocks, distrInfo)
 }
 
 // distributeInternal runs the distribution logic for a gauge, and adds the sends to
