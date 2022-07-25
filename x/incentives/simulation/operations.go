@@ -10,6 +10,7 @@ import (
 
 	"github.com/osmosis-labs/osmosis/v10/x/incentives/keeper"
 	"github.com/osmosis-labs/osmosis/v10/x/incentives/types"
+	incentivestypes "github.com/osmosis-labs/osmosis/v10/x/incentives/types"
 	lockuptypes "github.com/osmosis-labs/osmosis/v10/x/lockup/types"
 
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -28,13 +29,6 @@ const (
 	DefaultWeightMsgAddToGauge  int = 10
 	OpWeightMsgCreateGauge          = "op_weight_msg_create_gauge"
 	OpWeightMsgAddToGauge           = "op_weight_msg_add_to_gauge"
-)
-
-var (
-	// createGaugeFee is the fee required to create a new gauge.
-	createGaugeFee = sdk.NewInt(50 * 1_000_000)
-	// addToGagugeFee is the fee required to add to gauge.
-	addToGaugeFee = sdk.NewInt(25 * 1_000_000)
 )
 
 // WeightedOperations returns all the operations from the module with their respective weights.
@@ -122,13 +116,10 @@ func SimulateMsgCreateGauge(ak stakingTypes.AccountKeeper, bk stakingTypes.BankK
 	return func(
 		r *rand.Rand, app *baseapp.BaseApp, ctx sdk.Context, accs []simtypes.Account, chainID string,
 	) (simtypes.OperationMsg, []simtypes.FutureOperation, error) {
-		simAccount, _ := simtypes.RandomAcc(r, accs)
-		simCoins := bk.SpendableCoins(ctx, simAccount.Address)
-		if simCoins.Len() <= 0 || simCoins.AmountOf(appparams.BaseCoinUnit).LT(createGaugeFee) {
-			return simtypes.NoOpMsg(
-				types.ModuleName, types.TypeMsgCreateGauge, "Account have no coin"), nil, nil
-		}
+		accountsWithEnoughBalance := filterMinBalanceAccounts(ctx, bk, accs, incentivestypes.CreateGaugeFee, appparams.BaseCoinUnit)
 
+		simAccount, _ := simtypes.RandomAcc(r, accountsWithEnoughBalance)
+		simCoins := bk.SpendableCoins(ctx, simAccount.Address)
 		isPerpetual := r.Int()%2 == 0
 		distributeTo := genQueryCondition(r, ctx.BlockTime(), simCoins, types.DefaultGenesis().LockableDurations)
 		rewards := genRewardCoins(r, simCoins)
@@ -161,12 +152,10 @@ func SimulateMsgAddToGauge(ak stakingTypes.AccountKeeper, bk stakingTypes.BankKe
 	return func(
 		r *rand.Rand, app *baseapp.BaseApp, ctx sdk.Context, accs []simtypes.Account, chainID string,
 	) (simtypes.OperationMsg, []simtypes.FutureOperation, error) {
-		simAccount, _ := simtypes.RandomAcc(r, accs)
+		accountsWithEnoughBalance := filterMinBalanceAccounts(ctx, bk, accs, incentivestypes.AddToGaugeFee, appparams.BaseCoinUnit)
+
+		simAccount, _ := simtypes.RandomAcc(r, accountsWithEnoughBalance)
 		simCoins := bk.SpendableCoins(ctx, simAccount.Address)
-		if simCoins.Len() <= 0 || simCoins.AmountOf(appparams.BaseCoinUnit).LT(addToGaugeFee) {
-			return simtypes.NoOpMsg(
-				types.ModuleName, types.TypeMsgAddToGauge, "Account have no coin"), nil, nil
-		}
 
 		gauge := RandomGauge(ctx, r, k)
 		if gauge == nil {
@@ -197,4 +186,16 @@ func RandomGauge(ctx sdk.Context, r *rand.Rand, k keeper.Keeper) *types.Gauge {
 		return nil
 	}
 	return &gauges[r.Intn(len(gauges))]
+}
+
+// filterMinBalanceAccounts returns accounts that have at least the minimum balance of the given denom.
+func filterMinBalanceAccounts(ctx sdk.Context, bk stakingTypes.BankKeeper, accounts []simtypes.Account, minBalance sdk.Int, minBalanceDenom string) []simtypes.Account {
+	accountsWithEnoughBalance := []simtypes.Account{}
+	for _, acc := range accounts {
+		accountCoins := bk.SpendableCoins(ctx, acc.Address)
+		if accountCoins.Len() > 0 && accountCoins.AmountOf(minBalanceDenom).GT(minBalance) {
+			accountsWithEnoughBalance = append(accountsWithEnoughBalance, acc)
+		}
+	}
+	return accountsWithEnoughBalance
 }
